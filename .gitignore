@@ -50,3 +50,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+remote_command_server
+remote_command_client
+src
+.vscode
