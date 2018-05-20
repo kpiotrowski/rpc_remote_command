@@ -61,7 +61,7 @@ main (int argc, char *argv[])
 	int readSize = 0;
 	int stdinBufSize = 0;
 
-	while((readSize = read(STDIN_FILENO, stdinBuf, 1024)) > 0)
+	while((readSize = read(STDIN_FILENO, stdinBuf+stdinBufSize, 1024)) > 0)
 	{
 		stdinBufSize += readSize;
 		stdinBuf = (char*)realloc(stdinBuf, sizeof(char)* (stdinBufSize+1024));

@@ -5,23 +5,75 @@
  */
 
 #include "remote_command.h"
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/wait.h>
+#include <errno.h>
 
 commandOutput *
 rexec_1_svc(commandData *argp, struct svc_req *rqstp)
 {
 	static commandOutput result;
-
-	char **commandArgvs = (char**) malloc (argp->parameters.parameters_len*sizeof(char*));
+	char *commandArgvs[argp->parameters.parameters_len+1];
 	printf("%d\n", argp->parameters.parameters_len);
 	for (int i=0; i<argp->parameters.parameters_len; i++) {
 		commandArgvs[i] = (char*)argp->parameters.parameters_val[i];
 		printf("%s\n", commandArgvs[i]);
 	}
+	commandArgvs[argp->parameters.parameters_len]=NULL;
+
+	int stdinFd[2], stdoutFd[2], stderrFd[2];
+	pipe(stdoutFd);
+	pipe(stdinFd);
+	pipe(stderrFd);
+
 	printf("%s\n", argp->stdinBuf);
 
 	result.statusCode = 100;
-	result.stdoutBuf = (char*)"123";
-	result.stderrBuf = (char*)"1234";
 
-	return &result;
+	int pid;
+	if((pid=fork())==0) {
+		dup2(stdinFd[0], STDIN_FILENO);
+		dup2(stdoutFd[1], STDOUT_FILENO);
+		dup2(stderrFd[1], STDERR_FILENO);
+
+		close(stdinFd[0]);
+		close(stdoutFd[1]);
+		close(stderrFd[1]);
+		close(stdinFd[1]);
+		close(stdoutFd[0]);
+		close(stderrFd[0]);
+
+		int err = execv(argp->commandName, commandArgvs);
+		if(err==-1) {
+ 			fprintf(stderr, "%s\n", strerror(errno));
+		}
+	} else {
+		close(stdinFd[0]);
+		close(stdoutFd[1]);
+		close(stderrFd[1]);
+		write(stdinFd[1], argp->stdinBuf, strlen(argp->stdinBuf)+1);
+
+		wait(NULL);
+		puts("xxxx");
+
+		result.stdoutBuf = (char*)malloc(sizeof(char)*1024);
+		result.stderrBuf = (char*)malloc(sizeof(char)*1024);
+		int count=0, stdoutBufSize=0, stderrBufSize=0;
+		while((count = read(stdoutFd[0], result.stdoutBuf+stdoutBufSize, 1024))>0){
+			stdoutBufSize += count;
+			printf("%d\n", stdoutBufSize);
+			result.stdoutBuf = (char*)realloc(result.stdoutBuf, sizeof(char)*(stdoutBufSize+1024));
+		}
+		while((count = read(stderrFd[0], result.stderrBuf+stderrBufSize, 1024))>0){
+			stderrBufSize += count;
+			result.stderrBuf = (char*)realloc(result.stderrBuf, sizeof(char)*(stderrBufSize+1024));
+		}
+		result.stdoutBuf[stdoutBufSize] = 0;
+		result.stderrBuf[stderrBufSize] = 0;
+		printf("%s\n", result.stdoutBuf);
+
+		return &result;
+	}
 }
+
