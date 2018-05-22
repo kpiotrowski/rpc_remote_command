@@ -9,27 +9,26 @@
 #include <stdio.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include<fcntl.h>
 
 commandOutput *
 rexec_1_svc(commandData *argp, struct svc_req *rqstp)
 {
 	static commandOutput result;
-	char *commandArgvs[argp->parameters.parameters_len+1];
-	printf("%d\n", argp->parameters.parameters_len);
-	for (int i=0; i<argp->parameters.parameters_len; i++) {
-		commandArgvs[i] = (char*)argp->parameters.parameters_val[i];
-		printf("%s\n", commandArgvs[i]);
-	}
-	commandArgvs[argp->parameters.parameters_len]=NULL;
+	int commandLen = strlen(argp->commandName)+2;
+
+	for (int i=0; i<argp->parameters.parameters_len; i++)
+		commandLen += strlen((char*)argp->parameters.parameters_val[i])+1;
+	char command[commandLen];
+	sprintf(command, "%s ", argp->commandName);
+	for (int i=0; i<argp->parameters.parameters_len; i++)
+			sprintf(command, "%s %s", command, (char*)argp->parameters.parameters_val[i]);
+
 
 	int stdinFd[2], stdoutFd[2], stderrFd[2];
-	pipe(stdoutFd);
 	pipe(stdinFd);
+	pipe(stdoutFd);
 	pipe(stderrFd);
-
-	printf("%s\n", argp->stdinBuf);
-
-	result.statusCode = 100;
 
 	int pid;
 	if((pid=fork())==0) {
@@ -44,25 +43,26 @@ rexec_1_svc(commandData *argp, struct svc_req *rqstp)
 		close(stdoutFd[0]);
 		close(stderrFd[0]);
 
-		int err = execv(argp->commandName, commandArgvs);
-		if(err==-1) {
- 			fprintf(stderr, "%s\n", strerror(errno));
-		}
+		result.statusCode = WEXITSTATUS(system(command));
+		exit(result.statusCode);
 	} else {
 		close(stdinFd[0]);
 		close(stdoutFd[1]);
 		close(stderrFd[1]);
 		write(stdinFd[1], argp->stdinBuf, strlen(argp->stdinBuf)+1);
+		close(stdinFd[1]);
 
-		wait(NULL);
-		puts("xxxx");
+		int status;
+		waitpid(pid, &status, 0);
+		result.statusCode = WEXITSTATUS(status);
 
+		fcntl(stdoutFd[0], F_SETFL, O_NONBLOCK);
+		fcntl(stderrFd[0], F_SETFL, O_NONBLOCK);
 		result.stdoutBuf = (char*)malloc(sizeof(char)*1024);
 		result.stderrBuf = (char*)malloc(sizeof(char)*1024);
 		int count=0, stdoutBufSize=0, stderrBufSize=0;
 		while((count = read(stdoutFd[0], result.stdoutBuf+stdoutBufSize, 1024))>0){
 			stdoutBufSize += count;
-			printf("%d\n", stdoutBufSize);
 			result.stdoutBuf = (char*)realloc(result.stdoutBuf, sizeof(char)*(stdoutBufSize+1024));
 		}
 		while((count = read(stderrFd[0], result.stderrBuf+stderrBufSize, 1024))>0){
@@ -71,7 +71,6 @@ rexec_1_svc(commandData *argp, struct svc_req *rqstp)
 		}
 		result.stdoutBuf[stdoutBufSize] = 0;
 		result.stderrBuf[stderrBufSize] = 0;
-		printf("%s\n", result.stdoutBuf);
 
 		return &result;
 	}

@@ -6,6 +6,7 @@
 
 #include "remote_command.h"
 #include <unistd.h>
+#include<fcntl.h>
 
 
 void
@@ -42,9 +43,10 @@ remote_command_1(char *host, char* commandName, int parametersNumber, char** par
 #ifndef	DEBUG
 	clnt_destroy (clnt);
 #endif	 /* DEBUG */
-	exit(result_1->statusCode); // Wyjście ztym samym statusem co wykonywania funkacja
+	if (result_1 != NULL)
+		exit(result_1->statusCode); // Wyjście ztym samym statusem co wykonywania funkacja
+	exit(1);
 }
-
 
 int
 main (int argc, char *argv[])
@@ -57,17 +59,16 @@ main (int argc, char *argv[])
 	}
 	host = argv[1];
 
+	fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
 	char* stdinBuf = (char*)malloc(sizeof(char)* 1024);
 	int readSize = 0;
 	int stdinBufSize = 0;
-
 	while((readSize = read(STDIN_FILENO, stdinBuf+stdinBufSize, 1024)) > 0)
 	{
 		stdinBufSize += readSize;
 		stdinBuf = (char*)realloc(stdinBuf, sizeof(char)* (stdinBufSize+1024));
 	}
 	stdinBuf[stdinBufSize] = 0;
-
 	remote_command_1 (host, argv[2], argc-3, argv+3, stdinBuf);
 	exit (0);
 }
