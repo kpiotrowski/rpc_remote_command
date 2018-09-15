@@ -47,9 +47,55 @@ remote_command_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		return;
 	}
 	result = (*local)((char *)&argument, rqstp);
-	if (result != NULL && !svc_sendreply(transp, (xdrproc_t) _xdr_result, result)) {
-		svcerr_systemerr (transp);
+
+	//UDP - wiele pakietów
+	if (result != NULL) {
+		commandOutput *resultData = (struct commandOutput*) result;
+		int outputBufSize = strlen(resultData->stdoutBuf);
+		int errorBufFize = strlen(resultData->stderrBuf)>2048;
+		int packetCount = outputBufSize > errorBufFize ? outputBufSize / 2048 : errorBufFize / 2048;
+
+		resultData->packetNum = 0;
+		resultData->packetCount = packetCount+1;
+
+		//Podział na wiele pakietów, ustawienie pola z liczbą pakietów w strukturze
+		for (int i=0; i<packetCount; i++){
+			char r1 = 0, r2 = 0;
+
+			if (outputBufSize > 2048) {
+				r1 = resultData->stdoutBuf[2048];
+				resultData->stdoutBuf[2048] = 0;
+			}
+			if (errorBufFize > 2048) {
+				r2 = resultData->stderrBuf[2048];
+				resultData->stderrBuf[2048] = 0;
+			}
+
+			if (!svc_sendreply(transp, (xdrproc_t) _xdr_result, (char*)resultData)) {
+				svcerr_systemerr (transp);
+			}
+			resultData->packetNum ++;
+
+			if (outputBufSize > 2048) {
+				resultData->stdoutBuf[2048] = r1;
+				resultData->stdoutBuf += 2048;
+				outputBufSize -= 2048;
+			}
+			if (errorBufFize > 2048) {
+				resultData->stderrBuf[2048] = r2;
+				resultData->stderrBuf += 2048;
+				outputBufSize -= 2048;
+			}
+		}
+
+		if (outputBufSize <=0) resultData -> stdoutBuf[0] = 0;
+		if (errorBufFize <=0) resultData -> stderrBuf[0] = 0;
+		result = (char*)resultData;
+		if (!svc_sendreply(transp, (xdrproc_t) _xdr_result, result)) {
+			svcerr_systemerr (transp);
+		}
 	}
+
 	if (!svc_freeargs (transp, (xdrproc_t) _xdr_argument, (caddr_t) &argument)) {
 		fprintf (stderr, "%s", "unable to free arguments");
 		exit (1);

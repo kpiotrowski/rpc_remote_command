@@ -35,7 +35,54 @@ xdr_commandOutput (XDR *xdrs, commandOutput *objp)
 {
 	register int32_t *buf;
 
+
+	if (xdrs->x_op == XDR_ENCODE) {
+		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
+		if (buf == NULL) {
+			 if (!xdr_int (xdrs, &objp->statusCode))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->packetCount))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->packetNum))
+				 return FALSE;
+
+		} else {
+		IXDR_PUT_LONG(buf, objp->statusCode);
+		IXDR_PUT_LONG(buf, objp->packetCount);
+		IXDR_PUT_LONG(buf, objp->packetNum);
+		}
+		 if (!xdr_string (xdrs, &objp->stdoutBuf, ~0))
+			 return FALSE;
+		 if (!xdr_string (xdrs, &objp->stderrBuf, ~0))
+			 return FALSE;
+		return TRUE;
+	} else if (xdrs->x_op == XDR_DECODE) {
+		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
+		if (buf == NULL) {
+			 if (!xdr_int (xdrs, &objp->statusCode))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->packetCount))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->packetNum))
+				 return FALSE;
+
+		} else {
+		objp->statusCode = IXDR_GET_LONG(buf);
+		objp->packetCount = IXDR_GET_LONG(buf);
+		objp->packetNum = IXDR_GET_LONG(buf);
+		}
+		 if (!xdr_string (xdrs, &objp->stdoutBuf, ~0))
+			 return FALSE;
+		 if (!xdr_string (xdrs, &objp->stderrBuf, ~0))
+			 return FALSE;
+	 return TRUE;
+	}
+
 	 if (!xdr_int (xdrs, &objp->statusCode))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->packetCount))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->packetNum))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->stdoutBuf, ~0))
 		 return FALSE;

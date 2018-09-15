@@ -8,6 +8,8 @@ struct commandData{
 
 struct commandOutput{
   int statusCode;
+  int packetCount;
+  int packetNum;
   string stdoutBuf<>;
   string stderrBuf<>;
 };

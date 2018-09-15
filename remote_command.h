@@ -28,6 +28,8 @@ typedef struct commandData commandData;
 
 struct commandOutput {
 	int statusCode;
+	int packetCount;
+	int packetNum;
 	char *stdoutBuf;
 	char *stderrBuf;
 };
