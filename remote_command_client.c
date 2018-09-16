@@ -17,6 +17,8 @@ remote_command_1(char *host, char* commandName, int parametersNumber, char** par
 	commandData  rexec_1_arg;
 
 	rexec_1_arg.commandName = commandName;
+	rexec_1_arg.commandId = "";
+	rexec_1_arg.packetNum = 0;
 	rexec_1_arg.stdinBuf = stdinBuff;
 	rexec_1_arg.parameters.parameters_len = parametersNumber;
 	rexec_1_arg.parameters.parameters_val = (parameter*)malloc(sizeof(parameter)*parametersNumber);
@@ -36,10 +38,30 @@ remote_command_1(char *host, char* commandName, int parametersNumber, char** par
 	result_1 = rexec_1(&rexec_1_arg, clnt);
 	if (result_1 == (commandOutput *) NULL) {
 		clnt_perror (clnt, "call failed");
-	} else {
-		fprintf(stdout, "%s", result_1->stdoutBuf);
-		fprintf(stderr, "%s", result_1->stderrBuf);
+		exit(1);
 	}
+
+	commandOutput *results = (commandOutput*)malloc(result_1->packetCount*sizeof(commandOutput));
+	results[result_1->packetNum] = *result_1;
+
+	for (int i=0; i<result_1->packetCount-1 ; i++){
+		rexec_1_arg.packetNum++;
+		commandOutput  *result = rexec_1(&rexec_1_arg, clnt);
+		results[result->packetNum] = *result;
+	}
+
+	for (int i=0; i<result_1->packetCount; i++){
+		fprintf(stdout, "%s", results[i].stdoutBuf);
+		fflush(stdout);
+	}
+	printf("\n");
+	for (int i=0; i<result_1->packetCount; i++){
+		fprintf(stderr, "%s", results[i].stderrBuf);
+		fflush(stderr);
+	}
+	printf("\n");
+
+
 #ifndef	DEBUG
 	clnt_destroy (clnt);
 #endif	 /* DEBUG */

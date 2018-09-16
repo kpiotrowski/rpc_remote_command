@@ -23,6 +23,8 @@ struct commandData {
 		parameter *parameters_val;
 	} parameters;
 	char *stdinBuf;
+	char *commandId;
+  	int packetNum;
 };
 typedef struct commandData commandData;
 

@@ -46,6 +46,7 @@ remote_command_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		svcerr_decode (transp);
 		return;
 	}
+
 	result = (*local)((char *)&argument, rqstp);
 
 	//UDP - wiele pakietów
@@ -71,8 +72,10 @@ remote_command_1(struct svc_req *rqstp, register SVCXPRT *transp)
 				resultData->stderrBuf[2048] = 0;
 			}
 
-			if (!svc_sendreply(transp, (xdrproc_t) _xdr_result, (char*)resultData)) {
-				svcerr_systemerr (transp);
+			if (argument.rexec_1_arg.packetNum == resultData->packetNum){
+				if (!svc_sendreply(transp, (xdrproc_t) _xdr_result, (char*)resultData)) {
+					svcerr_systemerr (transp);
+				}
 			}
 			resultData->packetNum ++;
 
@@ -80,20 +83,21 @@ remote_command_1(struct svc_req *rqstp, register SVCXPRT *transp)
 				resultData->stdoutBuf[2048] = r1;
 				resultData->stdoutBuf += 2048;
 				outputBufSize -= 2048;
+			} else {
+				resultData->stdoutBuf[0] = 0;
 			}
 			if (errorBufFize > 2048) {
 				resultData->stderrBuf[2048] = r2;
 				resultData->stderrBuf += 2048;
 				outputBufSize -= 2048;
+			} else {
+				resultData->stderrBuf[0] = 0;
 			}
 		}
-
-		if (outputBufSize <=0) resultData -> stdoutBuf[0] = 0;
-		if (errorBufFize <=0) resultData -> stderrBuf[0] = 0;
-		result = (char*)resultData;
-		if (!svc_sendreply(transp, (xdrproc_t) _xdr_result, result)) {
-			svcerr_systemerr (transp);
-		}
+		if (argument.rexec_1_arg.packetNum == resultData->packetNum)
+			if (!svc_sendreply(transp, (xdrproc_t) _xdr_result, (char*)resultData)) {
+				svcerr_systemerr (transp);
+			}
 	}
 
 	if (!svc_freeargs (transp, (xdrproc_t) _xdr_argument, (caddr_t) &argument)) {

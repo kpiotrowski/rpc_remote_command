@@ -27,6 +27,11 @@ xdr_commandData (XDR *xdrs, commandData *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->stdinBuf, ~0))
 		 return FALSE;
+     if (!xdr_string (xdrs, &objp->commandId, ~0))
+	 	 return FALSE;
+	 if (!xdr_int (xdrs, &objp->packetNum))
+		 return FALSE;
+
 	return TRUE;
 }
 

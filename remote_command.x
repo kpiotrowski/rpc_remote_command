@@ -2,6 +2,8 @@ typedef string parameter<>;
 
 struct commandData{
   string commandName<>;
+  string commandId<>;
+  int packetNum;
   parameter parameters<>;
   string stdinBuf<>;
 };

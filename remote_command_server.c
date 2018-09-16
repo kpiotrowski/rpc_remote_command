@@ -14,6 +14,10 @@
 commandOutput *
 rexec_1_svc(commandData *argp, struct svc_req *rqstp)
 {
+	// if (argp == NULL) {
+	// 	return NULL;
+	// }
+
 	static commandOutput result;
 	int commandLen = strlen(argp->commandName)+2;
 
